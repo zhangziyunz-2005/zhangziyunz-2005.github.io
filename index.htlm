@@ -1,0 +1,566 @@
+<!-- Chosen Palette: Neutral & Versatile (#F8F5F2, #EAE7E3, #DCD9D5, #BFBBAF, #8B8580, #3C3A39) -->
+<!-- Application Structure Plan: 
+    设计思路：本SPA采用单页滚动式布局，顶部配有粘性导航栏，实现"scrollytelling"（滚动叙事）与"interactive report"（互动报告）的结合。
+    应用结构：
+    1.  粘性导航 (Nav)：按逻辑顺序（序言、行业、战略、绩效、未来）锚定页面，允许用户线性浏览或非线性跳转。
+    2.  序言 (Prologue)：设定分析框架，介绍小米“人车家全生态”的宏观叙事。
+    3.  行业环境 (Environment)：采用互动标签页(Tabs)展示PEST，并使用HTML/Tailwind构建五力模型图，清晰展示行业压力。
+    4.  战略选择 (Strategy)：使用HTML时间线展示发展历程，并用SWOT和BCG矩阵（均为HTML网格）等管理工具进行结构化分析。
+    5.  多元化绩效 (Performance)：核心数据模块。使用Chart.js动态图表（柱状图）展示财务数据（收入结构、毛利对比），辅以定性文本分析战略协同。
+    6.  未来展望 (Future)：总结分析，提出结构化建议。
+    用户流：用户加载页面后，可以通过（1）从上到下滚动，完整体验整个分析报告；（2）点击顶部导航，直接跳转到感兴趣的特定分析模块（如“绩效”或“未来”）。
+    选择理由：此结构将源报告（PPT大纲）的线性逻辑转化为网页原生的、易于探索的互动体验。它平衡了深度分析的结构性与用户自主探索的灵活性，是呈现复杂商业分析报告的最佳实践。
+-->
+<!-- Visualization & Content Choices: 
+    1.  PEST分析：(源信息) -> (目标: 组织) -> (呈现: 互动标签页) -> (互动: 点击切换P/E/S/T) -> (理由: 节省空间，引导用户主动点击获取信息) -> (方法: HTML/Tailwind + JS)。
+    2.  波特五力模型：(源信息) -> (目标: 组织/关系) -> (呈现: HTML图表) -> (互动: 静态) -> (理由: 清晰展示行业五种力量，HTML/Tailwind可完美实现该结构，无需SVG) -> (方法: HTML/Tailwind Flex/Grid)。
+    3.  发展时间线：(源信息) -> (目标: 变化) -> (呈现: HTML时间线) -> (互动: 静态) -> (理由: 直观展示小米战略演进) -> (方法: HTML/Tailwind)。
+    4.  SWOT/BCG矩阵：(源信息) -> (目标: 组织) -> (呈现: 4象限网格) -> (互动: 静态) -> (理由: 经典的战略分析工具，使用HTML/Grid实现) -> (方法: HTML/Tailwind Grid)。
+    5.  收入结构：(源信息: 财务数据) -> (目标: 比较/变化) -> (呈现: 堆叠柱状图) -> (互动: 鼠标悬停显示Tooltip) -> (理由: 清晰展示各业务板块收入占比及随时间的变化) -> (方法: Chart.js / Canvas)。
+    6.  毛利率对比：(源信息: 财务数据) -> (目标: 比较) -> (呈现: 簇状柱状图) -> (互动: 鼠标悬停显示Tooltip) -> (理由: 直观对比各业务板块的盈利能力差异) -> (方法: Chart.js / Canvas)。
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小米集团多元化战略分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background-color: #F8F5F2;
+            color: #3C3A39;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover {
+            border-bottom-color: #BFBBAF;
+            color: #3C3A39;
+        }
+        .nav-link.active {
+            border-bottom-color: #BFBBAF;
+            color: #3C3A39;
+            font-weight: 600;
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            background-color: #BFBBAF;
+            color: #FFFFFF;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <nav class="sticky top-0 w-full bg-white/90 backdrop-blur-sm shadow-sm z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-center items-center h-16">
+                <div class="flex space-x-6 sm:space-x-10">
+                    <a href="#prologue" class="nav-link text-gray-600 px-2 py-1 text-sm sm:text-base font-medium">序言</a>
+                    <a href="#environment" class="nav-link text-gray-600 px-2 py-1 text-sm sm:text-base font-medium">行业环境</a>
+                    <a href="#strategy" class="nav-link text-gray-600 px-2 py-1 text-sm sm:text-base font-medium">战略选择</a>
+                    <a href="#performance" class="nav-link text-gray-600 px-2 py-1 text-sm sm:text-base font-medium">多元化绩效</a>
+                    <a href="#future" class="nav-link text-gray-600 px-2 py-1 text-sm sm:text-base font-medium">未来展望</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 pt-10">
+
+        <section id="prologue" class="min-h-[60vh] flex flex-col justify-center items-center text-center py-20">
+            <h1 class="text-4xl sm:text-5xl font-bold tracking-tight text-[#3C3A39] mb-4">破局与重构</h1>
+            <h2 class="text-2xl sm:text-3xl font-medium text-[#8B8580] mb-8">小米集团多元化战略分析</h2>
+            <p class="max-w-3xl text-lg text-gray-700 leading-relaxed">
+                本部分是对小米集团战略的互动分析。小米正处在一个关键的转折点：从一个以智能手机为核心的挑战者，演变为一个试图重构未来生活方式的“人车家全生态”的构建者。本分析将深入探讨小米选择多元化的动因、其独特的“生态链”与“造车”模式，评估其绩效，并展望其未来。
+            </p>
+        </section>
+
+        <div class="h-16"></div>
+
+        <section id="environment" class="scroll-mt-16">
+            <h2 class="text-3xl font-bold text-center mb-4">行业环境：红海中的求索</h2>
+            <p class="text-center max-w-2xl mx-auto text-gray-600 mb-12">
+                理解小米的多元化，首先要理解其主营业务（智能手机）所处的困境。这是一个增长停滞、竞争惨烈、利润微薄的“红海”市场。外部环境的压力是小米寻求新增长曲线的最原始动因。
+            </p>
+
+            <div class="card mb-12">
+                <h3 class="text-xl font-semibold mb-6 text-center">PEST宏观环境分析</h3>
+                <div class="mb-4 flex flex-wrap justify-center gap-2">
+                    <button class="tab-btn pest-tab active px-4 py-2 rounded-md font-medium" data-tab="politics">政治 (P)</button>
+                    <button class="tab-btn pest-tab px-4 py-2 rounded-md font-medium" data-tab="economy">经济 (E)</button>
+                    <button class="tab-btn pest-tab px-4 py-2 rounded-md font-medium" data-tab="social">社会 (S)</button>
+                    <button class="tab-btn pest-tab px-4 py-2 rounded-md font-medium" data-tab="tech">技术 (T)</button>
+                </div>
+                <div class="p-4 rounded-b-lg min-h-[150px]">
+                    <div class="pest-content" id="content-politics">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>地缘政治：</strong>国际贸易摩擦与关税壁垒，对全球供应链和海外市场构成挑战。</li>
+                            <li><strong>监管政策：</strong>全球数据安全和隐私法规日趋严格，增加企业合规成本。</li>
+                            <li><strong>产业扶持：</strong>各国对新能源汽车、人工智能、5G等高新技术的政策性支持，带来发展机遇。</li>
+                        </ul>
+                    </div>
+                    <div class="pest-content hidden" id="content-economy">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>经济周期：</strong>全球经济增长放缓，通胀压力影响消费者信心和非必需品支出。</li>
+                            <li><strong>购买力：</strong>消费者对“性价比”的需求持续存在，但也日益关注品质和品牌溢价。</li>
+                            <li><strong>成本：</strong>原材料、芯片和劳动力成本波动，挤压硬件利润空间。</li>
+                        </ul>
+                    </div>
+                    <div class="pest-content hidden" id="content-social">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>消费趋势：</strong>“万物互联” (AIoT) 成为主流生活方式，消费者渴望无缝的智能体验。</li>
+                            <li><strong>品牌意识：</strong>品牌忠诚度重要性提升，高端化成为手机品牌必经之路。</li>
+                            <li><strong>环保理念：</strong>ESG（环境、社会和治理）意识增强，对企业可持续发展提出更高要求。</li>
+                        </ul>
+                    </div>
+                    <div class="pest-content hidden" id="content-tech">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>技术成熟：</strong>5G、AI、物联网技术已到规模化应用阶段，为“人车家”融合提供基础。</li>
+                            <li><strong>技术革新：</strong>AI大模型、智能驾驶、三电（电池、电机、电控）技术是未来竞争高地。</li>
+                            <li><strong>创新周期：</strong>消费电子产品创新放缓，同质化严重，亟需颠覆性创新。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="text-xl font-semibold mb-6 text-center">波特五力模型 (智能手机行业)</h3>
+                <div class="flex flex-col items-center justify-center p-4 min-h-[400px]">
+                    <div class="w-full max-w-lg">
+                        <div class="flex justify-center mb-4">
+                            <div class="card bg-gray-100 text-center w-48 py-3 px-2 shadow-none border border-[#DCD9D5]">
+                                <h4 class="font-semibold">新进入者威胁</h4>
+                                <p class="text-sm font-bold text-red-600">低</p>
+                                <p class="text-xs text-gray-600">(资本、技术、品牌壁垒高)</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center space-x-4">
+                            <div class="card bg-gray-100 text-center w-48 py-3 px-2 shadow-none border border-[#DCD9D5]">
+                                <h4 class="font-semibold">供应商议价能力</h4>
+                                <p class="text-sm font-bold text-red-600">高</p>
+                                <p class="text-xs text-gray-600">(芯片、屏幕、OS高度集中)</p>
+                            </div>
+                            <div class="card bg-gray-100 text-center w-48 py-3 px-2 shadow-lg border border-[#BFBBAF]">
+                                <h4 class="font-semibold">现有竞争者</h4>
+                                <p class="text-sm font-bold text-red-600">极高</p>
+                                <p class="text-xs text-gray-600">(苹果, 三星, 华为, OV)</p>
+                            </div>
+                            <div class="card bg-gray-100 text-center w-48 py-3 px-2 shadow-none border border-[#DCD9D5]">
+                                <h4 class="font-semibold">购买者议价能力</h4>
+                                <p class="text-sm font-bold text-red-600">高</p>
+                                <p class="text-xs text-gray-600">(同质化, 转换成本低)</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-center mt-4">
+                            <div class="card bg-gray-100 text-center w-48 py-3 px-2 shadow-none border border-[#DCD9D5]">
+                                <h4 class="font-semibold">替代品威胁</h4>
+                                <p class="text-sm font-bold text-red-600">低</p>
+                                <p class="text-xs text-gray-600">(尚无成熟替代品)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="h-16"></div>
+
+        <section id="strategy" class="scroll-mt-16">
+            <h2 class="text-3xl font-bold text-center mb-4">战略选择：生态链与造车</h2>
+            <p class="text-center max-w-2xl mx-auto text-gray-600 mb-12">
+                面对主业困局，小米的多元化路径清晰且独特。它没有选择完全不相关的金融或房地产，而是围绕其核心能力，构建了“生态链”和“智能汽车”两大战略支柱。
+            </p>
+
+            <div class="card mb-12">
+                <h3 class="text-xl font-semibold mb-6 text-center">多元化战略演进</h3>
+                <div class="relative w-full overflow-x-auto p-4">
+                    <div class="flex w-max space-x-8">
+                        <div class="flex-shrink-0 w-64">
+                            <div class="h-full border-l-4 border-[#BFBBAF] pl-4">
+                                <span class="text-sm font-semibold text-[#8B8580]">2010-2013</span>
+                                <h4 class="font-semibold mt-1">专注期</h4>
+                                <p class="text-sm text-gray-600">以MIUI和智能手机为核心，打造“铁人三项”模式。</p>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 w-64">
+                            <div class="h-full border-l-4 border-[#BFBBAF] pl-4">
+                                <span class="text-sm font-semibold text-[#8B8580]">2014-2017</span>
+                                <h4 class="font-semibold mt-1">生态链启动 (相关多元化)</h4>
+                                <p class="text-sm text-gray-600">以手机为中心，投资孵化“竹笋”企业，拓展IoT智能家居。</p>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 w-64">
+                            <div class="h-full border-l-4 border-[#BFBBAF] pl-4">
+                                <span class="text-sm font-semibold text-[#8B8580]">2018-2020</span>
+                                <h4 class="font-semibold mt-1">AIoT 战略</h4>
+                                <p class="text-sm text-gray-600">确立 "手机 x AIoT" 双引擎战略，平台效应初显。</p>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 w-64">
+                            <div class="h-full border-l-4 border-[#BFBBAF] pl-4">
+                                <span class="text-sm font-semibold text-[#8B8580]">2021-至今</span>
+                                <h4 class="font-semibold mt-1">跨界深水区 (造车)</h4>
+                                <p class="text-sm text-gray-600">宣布进军智能电动汽车，构建“人车家全生态”。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="text-xl font-semibold mb-6 text-center">SWOT 分析</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h4 class="font-bold text-lg text-green-800 mb-2">优势 (S)</h4>
+                        <ul class="list-disc list-inside space-y-1 text-green-700">
+                            <li>强大的品牌和“米粉”用户基础</li>
+                            <li>高效的生态链孵化模式</li>
+                            <li>庞大的AIoT平台连接数和数据</li>
+                            <li>成熟的互联网打法和渠道管理</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+                        <h4 class="font-bold text-lg text-red-800 mb-2">劣势 (W)</h4>
+                        <ul class="list-disc list-inside space-y-1 text-red-700">
+                            <li>核心技术（如芯片）仍有短板</li>
+                            <li>“性价比”品牌形象固化，高端化受阻</li>
+                            <li>造车“零经验”，生产制造能力是短板</li>
+                            <li>多线作战，资源高度分散</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h4 class="font-bold text-lg text-blue-800 mb-2">机会 (O)</h4>
+                        <ul class="list-disc list-inside space-y-1 text-blue-700">
+                            <li>全球AIoT市场高速增长</li>
+                            <li>智能汽车是下一个万亿级风口</li>
+                            <li>“人车家全生态”的巨大协同潜力</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <h4 class="font-bold text-lg text-yellow-800 mb-2">威胁 (T)</h4>
+                        <ul class="list-disc list-inside space-y-1 text-yellow-700">
+                            <li>各赛道均有强敌 (苹果, 华为, 特斯拉, 比亚迪)</li>
+                            <li>造车是“资本黑洞”，投入巨大，回报周期长</li>
+                            <li>国际地缘政治和供应链风险</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="h-16"></div>
+
+        <section id="performance" class="scroll-mt-16">
+            <h2 class="text-3xl font-bold text-center mb-4">多元化绩效：成绩单</h2>
+            <p class="text-center max-w-2xl mx-auto text-gray-600 mb-12">
+                小米的多元化是否成功？我们从财务和战略两个维度进行评估。数据清晰地显示，多元化已成为小米增长的第二曲线，并重塑了其商业模式。
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4 text-center">收入结构变化</h3>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4 text-center">
+                        数据显示，IoT与生活消费品（生态链）的收入占比稳步提升，有效对冲了手机市场的波动。智能汽车在2024年开始贡献收入，成为新的增长点。
+                    </p>
+                </div>
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4 text-center">业务毛利率对比</h3>
+                    <div class="chart-container">
+                        <canvas id="marginChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4 text-center">
+                        毛利率揭示了小米的盈利逻辑：硬件（手机、IoT）是“流量入口”，毛利低；互联网服务是“利润奶牛”，毛利极高。多元化(IoT)的成功，扩大了高利润业务(互联网)的用户基础。
+                    </p>
+                </div>
+            </div>
+            <div class="card mt-8">
+                <h3 class="text-xl font-semibold mb-4 text-center">战略绩效：协同效应</h3>
+                <p class="text-gray-700 leading-relaxed">
+                    小米多元化的核心是战略协同。<strong>“手机 x AIoT”</strong> 已实现：手机为AIoT导流，海量的AIoT设备连接数增加了MIUI用户的粘性，并贡献了可观的互联网服务收入。<strong>“人车家全生态”</strong> 正在实现：汽车成为最大的智能终端，将小米生态从“家庭”延伸到“出行”，澎湃OS（HyperOS）是打通三个场景的“神经中枢”，这是小米区别于其他手机或汽车厂商的终极护城河。
+                </p>
+            </div>
+        </section>
+
+        <div class="h-16"></div>
+
+        <section id="future" class="scroll-mt-16">
+            <h2 class="text-3xl font-bold text-center mb-4">未来展望：人车家全生态</h2>
+            <p class="text-center max-w-2xl mx-auto text-gray-600 mb-12">
+                小米的多元化已进入“下半场”。上半场（生态链）已证明成功，下半场（造车）则充满高风险和高回报。其未来的成败，取决于能否在多线作战中实现真正的智能协同。
+            </p>
+
+            <div class="card mb-12">
+                <h3 class="text-xl font-semibold mb-6 text-center">BCG 矩阵 (波士顿矩阵)</h3>
+                <div class="grid grid-cols-2 grid-rows-2 gap-px bg-[#DCD9D5] border border-[#DCD9D5] rounded-lg overflow-hidden">
+                    <div class="relative p-6 bg-white">
+                        <span class="absolute top-2 left-2 text-xs font-semibold text-gray-400">高增长 / 高份额</span>
+                        <h4 class="font-bold text-lg mb-2">🌟 明星业务 (Star)</h4>
+                        <ul class="list-disc list-inside text-sm text-gray-700">
+                            <li><strong>AIoT 业务:</strong> 市场高速增长，小米份额领先，需持续投入AI以保持优势。</li>
+                        </ul>
+                    </div>
+                    <div class="relative p-6 bg-white">
+                        <span class="absolute top-2 left-2 text-xs font-semibold text-gray-400">高增长 / 低份额</span>
+                        <h4 class="font-bold text-lg mb-2">❓ 问题业务 (Question Mark)</h4>
+                        <ul class="list-disc list-inside text-sm text-gray-700">
+                            <li><strong>智能汽车:</strong> 市场（风口）高增长，小米（新进入）份额低，需巨额投资以决定未来。</li>
+                            <li><strong>手机高端化:</strong> 市场（高端机）高增长，小米份额有待提升。</li>
+                        </ul>
+                    </div>
+                    <div class="relative p-6 bg-white">
+                        <span class="absolute top-2 left-2 text-xs font-semibold text-gray-400">低增长 / 高份额</span>
+                        <h4 class="font-bold text-lg mb-2">🐮 现金牛 (Cash Cow)</h4>
+                        <ul class="list-disc list-inside text-sm text-gray-700">
+                            <li><strong>智能手机 (中低端):</strong> 市场（存量）低增长，小米份额高，是稳定的现金流和流量来源。</li>
+                            <li><strong>互联网服务:</strong> 增长稳健，利润丰厚。</li>
+                        </ul>
+                    </div>
+                    <div class="relative p-6 bg-white">
+                        <span class="absolute top-2 left-2 text-xs font-semibold text-gray-400">低增长 / 低份额</span>
+                        <h4 class="font-bold text-lg mb-2">🐶 瘦狗业务 (Dog)</h4>
+                        <ul class="list-disc list-inside text-sm text-gray-700">
+                            <li>部分边缘生态链产品（如非智能家居类）</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-2xl font-semibold text-center mb-6">战略建议</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card">
+                    <h4 class="text-lg font-semibold mb-2 text-[#3C3A39]">1. 固本 (核心业务)</h4>
+                    <p class="text-sm text-gray-600">
+                        手机业务是“人车家”生态的基石和流量中心，决不能丢。必须坚持高端化，以提升品牌形象、改善利润率，并反哺汽车业务。
+                    </p>
+                </div>
+                <div class="card">
+                    <h4 class="text-lg font-semibold mb-2 text-[#3C3A39]">2. 强链 (AIoT业务)</h4>
+                    <p class="text-sm text-gray-600">
+                        AIoT是小米的差异化优势。应借助AI大模型，真正打通“人车家”场景，实现从“被动控制”到“主动智能”的体验飞跃。
+                    </p>
+                </div>
+                <div class="card">
+                    <h4 class="text-lg font-semibold mb-2 text-[#3C3A39]">3. 控险 (智能汽车)</h4>
+                    <p class="text-sm text-gray-600">
+                        汽车业务关乎生死。必须严格控制成本和现金流，避免陷入价格战。核心卖点应是与小米生态的“无缝智能协同”，而非单纯的硬件堆料。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="mt-20 py-8 bg-[#EAE7E3]">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-sm text-gray-500">
+                这是一个基于战略管理分析生成的互动Web应用。
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const palette = {
+                text: '#3C3A39',
+                accent: '#BFBBAF',
+                muted: '#8B8580',
+                lightBg: '#EAE7E3',
+                car: '#B9672A' 
+            };
+
+            const pestTabs = document.querySelectorAll('.pest-tab');
+            const pestContents = document.querySelectorAll('.pest-content');
+
+            pestTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetId = tab.dataset.tab;
+
+                    pestTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    pestContents.forEach(c => c.classList.add('hidden'));
+                    document.getElementById('content-' + targetId).classList.remove('hidden');
+                });
+            });
+
+            const navLinks = document.querySelectorAll('nav a');
+            const sections = document.querySelectorAll('section');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.4
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === '#' + id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if(targetElement) {
+                        const offsetTop = targetElement.offsetTop - 64; 
+                        window.scrollTo({
+                            top: offsetTop,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+
+
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            new Chart(revenueCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['2020', '2021', '2022', '2023', '2024 (E)'],
+                    datasets: [
+                        {
+                            label: '智能手机',
+                            data: [1522, 1903, 1800, 1672, 1600],
+                            backgroundColor: palette.accent,
+                        },
+                        {
+                            label: 'IoT与生活消费品',
+                            data: [674, 850, 800, 780, 820],
+                            backgroundColor: palette.muted,
+                        },
+                        {
+                            label: '互联网服务',
+                            data: [238, 282, 290, 301, 320],
+                            backgroundColor: palette.text,
+                        },
+                        {
+                            label: '智能汽车',
+                            data: [0, 0, 0, 0, 150],
+                            backgroundColor: palette.car,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, title: { display: true, text: '收入 (亿人民币)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const item = tooltipItems[0];
+                                    let label = item.chart.data.labels[item.dataIndex];
+                                    if (Array.isArray(label)) {
+                                      return label.join(' ');
+                                    } else {
+                                      return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const marginCtx = document.getElementById('marginChart').getContext('2d');
+            new Chart(marginCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['智能手机', ['IoT与生活', '消费品'], '互联网服务'],
+                    datasets: [
+                        {
+                            label: '毛利率 (%)',
+                            data: [10.2, 14.8, 72.3],
+                            backgroundColor: [palette.accent, palette.muted, palette.text],
+                            borderColor: [palette.accent, palette.muted, palette.text],
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '毛利率 (%)' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const item = tooltipItems[0];
+                                    let label = item.chart.data.labels[item.dataIndex];
+                                    if (Array.isArray(label)) {
+                                      return label.join(' ');
+                                    } else {
+                                      return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
